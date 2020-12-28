@@ -1,0 +1,188 @@
+<HTML>
+<BODY>
+<canvas width='500' height='500' id='lab03'>
+</canvas>
+
+<script>
+
+    let house_v = [
+        {x: 0, y: 0, z: 0},
+        {x: 30, y: 0, z: 0},
+        {x: 30, y: 30, z: 0},
+        {x: 0, y: 30, z: 0},
+        {x: 0, y: 0, z: 30},
+        {x: 30, y: 0, z: 30},
+        {x: 30, y: 30, z: 30},
+        {x: 0, y: 30, z: 30},
+        {x: 45, y: 15, z: 15},
+    ];
+
+    let house_f = [
+        [1, 2, 3, 4],
+        [1, 2, 6, 5],
+        [5, 6, 7, 8],
+        [2, 3, 8, 7],
+        [2, 6, 9],
+        [6, 7, 9],
+        [3, 7, 9],
+        [2, 3, 9]
+    ];
+
+
+    var clrR = 255;
+    var clrB = 255;
+    var clrG = 255;
+
+    function colorArea() {
+        clrR = Math.random() * 255;
+        clrB = Math.random() * 255;
+        clrG = Math.random() * 255;
+    }
+
+
+    var canvas = document.getElementById('lab03');
+    var ctx = canvas.getContext('2d');
+
+    var w = canvas.width, h = canvas.height;
+    var maxy = 0, miny = canvas.height;
+    var parray = new Array();
+    var n = 0;
+    var bpoints = [];
+
+    function pixel(x, y) {
+        ctx.fillRect(x, y, 1, 1);
+    }
+
+
+    function Line(ctx, x0, y0, x1, y1) {
+        var dy = Math.abs(y1 - y0);
+        var dx = Math.abs(x1 - x0);
+        var dmax = Math.max(dx, dy);
+        var dmin = Math.min(dx, dy);
+        var xdir = 1;
+        if (x1 < x0) xdir = -1;
+        var ydir = 1;
+        if (y1 < y0) ydir = -1;
+        var eps = 0;
+        var s = 1;
+        var k = 2 * dmin;
+        if (dy <= dx) {
+            var y = y0;
+            for (var x = x0; x * xdir <= x1 * xdir; x += xdir) {
+                ctx.fillRect(x * s, y * s, 1 * s, 1 * s);
+                eps = eps + k;
+                if (eps > dmax) {
+                    y += ydir;
+                    eps = eps - 2 * dmax;
+                }
+            }
+        } else {
+            var x = x0;
+            for (var y = y0; y * ydir <= y1 * ydir; y += ydir) {
+                ctx.fillRect(x * s, y * s, 1 * s, 1 * s);
+                eps = eps + k;
+                if (eps > dmax) {
+                    x += xdir;
+                    eps = eps - 2 * dmax;
+                }
+            }
+        }
+    }
+
+
+    function addPoint(x, y) {
+        parray[2 * n] = x;
+        parray[2 * n + 1] = y;
+        if (n != 0) {
+            Line(ctx, parray[2 * n], parray[2 * n + 1],
+                parray[2 * n - 2], parray[2 * n - 1]);
+        }
+        if (maxy < parray[2 * n + 1]) maxy = parray[2 * n + 1];
+        if (miny > parray[2 * n + 1]) miny = parray[2 * n + 1];
+        n++;
+    }
+
+    function paint() {
+        Line(ctx, parray[2 * n - 2], parray[2 * n - 1], parray[0], parray[1]);
+
+        let idata = ctx.getImageData(0, 0, w, h);
+
+        let x0 = parray[2 * n - 2], ry0 = parray[2 * n - 1];
+        let x1 = parray[0], ry1 = parray[1];
+        let delta = x1 - x0
+        if (delta === 0) delta = 0.00001
+        let k = (ry1 - ry0) / delta;
+        let b = ry0 - k * x0;
+        let sign = (ry1 - ry0) / Math.abs(ry1 - ry0);
+        for (let j = ry0 + sign; sign * j <= sign * (ry1 - sign); j += sign) {
+            if (!Array.isArray(bpoints[j])) {
+                bpoints[j] = new Array();
+            }
+            bpoints[j].push(Math.round((j - b) / k));
+        }
+        let min = Math.min(ry0, ry1);
+        if (!Array.isArray(bpoints[min])) {
+            bpoints[min] = new Array();
+        }
+        bpoints[min].push(Math.round((min - b) / k));
+
+        for (let i = 1; i < n; i++) {
+            x0 = parray[2 * i], ry0 = parray[2 * i + 1];
+            x1 = parray[2 * i - 2], ry1 = parray[2 * i - 1];
+            let delta = x1 - x0
+            if (delta === 0) delta = 0.00001
+            let k = (ry1 - ry0) / delta;
+            b = ry0 - k * x0;
+            sign = (ry1 - ry0) / Math.abs(ry1 - ry0);
+            for (let j = ry0 + sign; sign * j <= sign * (ry1 - sign); j += sign) {
+                if (!Array.isArray(bpoints[j])) {
+                    bpoints[j] = new Array();
+                }
+                bpoints[j].push(Math.round((j - b) / k));
+            }
+            min = Math.min(ry0, ry1);
+            if (!Array.isArray(bpoints[min])) {
+                bpoints[min] = new Array();
+            }
+            bpoints[min].push(Math.round((min - b) / k));
+        }
+
+        for (let ti = miny; ti < maxy; ti++) {
+            if (!Array.isArray(bpoints[ti])) {
+                continue;
+            }
+            let xarray = bpoints[ti].sort(function (a, b) {
+                return a - b;
+            });
+            for (let k = 0; k < xarray.length / 2; k++) {
+                for (let tj = xarray[k * 2] + 1; tj < xarray[k * 2 + 1]; tj++) {
+                    idata.data[(ti * w + tj) * 4] = clrR
+                    idata.data[(ti * w + tj) * 4 + 1] = clrG
+                    idata.data[(ti * w + tj) * 4 + 2] = clrB
+                    idata.data[(ti * w + tj) * 4 + 3] = 255;
+                }
+            }
+        }
+        ctx.putImageData(idata, 0, 0);
+    }
+
+    let x_offset = 200, y_offset = 200;
+    let scale = 1
+
+
+    for (let f = 0; f < house_f.length; f++) {
+        colorArea()
+        parray = [];
+        n = 0;
+        maxy = 0, miny = canvas.height;
+        bpoints = [];
+        for (let i = 0; i < house_f[f].length; i++) {
+            let index = house_f[f][i] - 1;
+            addPoint(scale * house_v[index].x + x_offset, scale * house_v[index].y + y_offset);
+        }
+        paint();
+    }
+
+</script>
+</BODY>
+</HTML>
